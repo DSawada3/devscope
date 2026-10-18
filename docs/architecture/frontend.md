@@ -140,8 +140,8 @@ Radix UI が選択部品やダイアログのキーボード・フォーカス�
 [calendar.spec.ts](../../tests/calendar.spec.ts) は日週の同期、CRUD、入力検証、予定／実績の分離、カテゴリ、サイドバー、ドラッグ、再読み込み、画面サイズと実行時エラーを検証します。[dates.spec.ts](../../tests/dates.spec.ts) は日付計算と期間表示を検証します。
 
 ```sh
-npm run build
-npm test
+mise run build
+mise run test
 ```
 
 テストは Google Chrome 上のフロントエンドを対象とし、Tauri のネイティブウィンドウを直接操作しません。

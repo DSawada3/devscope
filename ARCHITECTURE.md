@@ -155,19 +155,19 @@ Rust の起動処理には `invoke_handler` や独自プラグインを登録し
 
 | コマンド | 処理 |
 | --- | --- |
-| `npm run dev` | Vite を1420番ポートで起動。使用中なら別ポートへ自動変更せず失敗 |
-| `npm run build` | TypeScript の型検査後に Vite が `dist/` を生成。FullCalendar 関連は別チャンクに分割 |
-| `npm run tauri dev` | Vite を起動し、Tauri が開発 URL を表示 |
-| `npm run tauri build -- --debug --no-bundle` | フロントエンドをビルドし、Windows デバッグ実行ファイルを生成 |
-| `cargo check --manifest-path src-tauri/Cargo.toml` | Rust 側のコンパイル確認 |
-| `npm test` | 日付計算とブラウザー操作の全テスト |
-| `npm run test:e2e` | カレンダーのブラウザー操作テスト |
+| `mise run dev` | Vite を1420番ポートで起動。使用中なら別ポートへ自動変更せず失敗 |
+| `mise run build` | TypeScript の型検査後に Vite が `dist/` を生成。FullCalendar 関連は別チャンクに分割 |
+| `mise run tauri:dev` | Vite を起動し、Tauri が開発 URL を表示 |
+| `mise run tauri:build` | フロントエンドをビルドし、Windows デバッグ実行ファイルを生成 |
+| `mise run rust:check` | Rust 側のコンパイル確認 |
+| `mise run test` | 日付計算とブラウザー操作の全テスト |
+| `mise run test:e2e` | カレンダーのブラウザー操作テスト |
 
 Tauri の配布対象は `dist/` です。現在は `bundle.active` が false で、インストーラーを生成しません。`dist/`、Rust の `target/`、Tauri が生成するスキーマ、テスト成果物は Git の追跡対象から除外しています。
 
 Playwright はインストール済みの Google Chrome を使用します。テスト環境は日本語・Asia/Tokyo とし、カレンダー操作のテストでは日時を固定します。日付計算では週・月・年の境界を確認し、画面では CRUD、モード分離、フィルター、日付同期、ドラッグ操作、再読み込み時のリセット、画面幅と実行時エラーを検証します。ネイティブ WebView2 の操作テストではありません。
 
-`npm ci` / `npm install` の `prepare` で Husky を有効化し、`commit-msg` で commitlint を実行します。`defaultIgnores: false` のため、merge・fixup メッセージも検証対象です。
+`mise run setup` / `mise exec -- npm install` の `prepare` で Husky を有効化し、`commit-msg` で commitlint を実行します。`defaultIgnores: false` のため、merge・fixup メッセージも検証対象です。
 
 ## 10. 今後の拡張時に検討する境界
 

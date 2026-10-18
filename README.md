@@ -5,6 +5,8 @@ DevScope は PSP の考え方に基づいて作業の予定と実績を記録す
 構成・状態管理・データの流れは [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
 React のコンポーネント図と各部品の責務は [フロントエンド設計](docs/architecture/frontend.md) に記載しています。
 
+開発時は [Codex の作業指針](AGENTS.md) に従い、[開発計画](docs/development-plan.md)、[設計判断（ADR）](docs/adr/README.md)、[依存・素材の記録](docs/provenance.md) を更新してください。
+
 ## アイコンについて
 
 **AI生成アイコン**：[`public/devscope.svg`](public/devscope.svg) は、Codex が SVG コードを生成して作成したものです。
@@ -17,25 +19,35 @@ Tauri 用の `src-tauri/icons/icon.png`・`icon.ico` も、この AI 生成ア�
 
 ## 起動とビルド
 
-Node.js 18.17 以降と npm を用意してください。既存環境に合わせて Vite 6・Tailwind CSS 3 を使用しています。
+mise をインストールし、Node.js 18.17 以降と npm を利用できる環境を用意してください。開発・テスト・ビルドは [mise.toml](mise.toml) のタスク経由で実行します。既存環境に合わせて Vite 6・Tailwind CSS 3 を使用しています。
+
+各タスクには日本語の説明を付けています。リポジトリのルートで次のコマンドを実行するとヘルプを確認できます。
 
 ```sh
-npm ci
-npm run dev
+mise run help          # 開発コマンドと説明の一覧（mise tasks と同じ）
+mise tasks info test   # test タスクの説明・実行内容
+mise run --help        # mise のタスク実行オプション
+```
+
+タスク定義の形式は [mise 公式ドキュメント](https://mise.jdx.dev/tasks/toml-tasks.html) を参照してください。
+
+```sh
+mise run setup
+mise run dev
 ```
 
 ブラウザーでは `http://localhost:1420` を開きます。
 
 ```sh
-npm run build
-npm run preview
+mise run build
+mise run preview
 ```
 
 Windows デスクトップ版は Rust、Visual Studio の C++ ビルドツール、WebView2 を導入した環境で起動します。
 
 ```sh
-npm run tauri dev
-npm run tauri build -- --debug --no-bundle
+mise run tauri:dev
+mise run tauri:build
 ```
 
 後者は `src-tauri/target/debug/devscope.exe` を生成します。インストーラーの生成は対象外です。
@@ -68,7 +80,7 @@ SQLite、ファイル保存、Git 連携、AI 分析は実装していません�
 Google Chrome をインストールした環境で次を実行してください。
 
 ```sh
-npm test
+mise run test
 ```
 
 Playwright が開発サーバーを起動し、日付計算・日週の同期・入力検証・CRUD・モード分離・再読み込み時のリセット・ドラッグ操作・画面サイズを検証します。
@@ -78,10 +90,10 @@ Playwright が開発サーバーを起動し、日付計算・日週の同期・
 
 ## 開発環境のセットアップ
 
-Git と Node.js 18 以降、npm を用意し、リポジトリのルートで次を実行してください。
+Git と mise、Node.js 18.17 以降、npm を用意し、リポジトリのルートで次を実行してください。
 
 ```sh
-npm ci
+mise run setup
 ```
 
 `prepare` スクリプトで Husky の Git フックを自動的に有効化します。
@@ -112,5 +124,5 @@ fix(api)!: レスポンス形式を修正
 既存のメッセージファイルを手動で検証する場合は、次を実行します。
 
 ```sh
-npm run commitlint -- --edit .git/COMMIT_EDITMSG
+mise exec -- npm run commitlint -- --edit .git/COMMIT_EDITMSG
 ```

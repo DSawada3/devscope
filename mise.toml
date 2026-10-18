@@ -1,0 +1,42 @@
+# 各タスクの説明は mise tasks、詳細は mise tasks info <タスク名> で確認する。
+# Node.js / Rust は既存の利用環境を使う。ここではバージョンを変更しない。
+
+[tasks.help]
+description = "利用できる開発コマンドと説明を表示する"
+run = "mise tasks"
+
+[tasks.setup]
+description = "ロックファイルに従って npm 依存を導入し、Husky を設定する"
+run = "npm ci"
+
+[tasks.dev]
+description = "Vite 開発サーバーを起動する（http://localhost:1420）"
+run = "npm run dev"
+
+[tasks.build]
+description = "TypeScript の型チェック後、フロントエンドを dist/ にビルドする"
+run = "npm run build"
+
+[tasks.preview]
+description = "ビルド済みのフロントエンドをプレビューする（先に build を実行）"
+run = "npm run preview"
+
+[tasks.test]
+description = "日付計算と画面操作の全 Playwright テストを実行する（Google Chrome 必須）"
+run = "npm test"
+
+[tasks."test:e2e"]
+description = "カレンダーの画面操作テストのみ実行する（Google Chrome 必須）"
+run = "npm run test:e2e"
+
+[tasks."rust:check"]
+description = "Rust / Tauri 側のコンパイルを確認する（Rust・C++ ビルドツール必須）"
+run = "cargo check --manifest-path src-tauri/Cargo.toml"
+
+[tasks."tauri:dev"]
+description = "Windows デスクトップ版を開発モードで起動する（Rust・C++ ビルドツール・WebView2 必須）"
+run = "npm run tauri dev"
+
+[tasks."tauri:build"]
+description = "Windows デバッグ実行ファイルを生成する（インストーラーなし）"
+run = "npm run tauri build -- --debug --no-bundle"
