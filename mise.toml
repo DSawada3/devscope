@@ -33,6 +33,10 @@ run = "npm run test:e2e"
 description = "Rust / Tauri 側のコンパイルを確認する（Rust・C++ ビルドツール必須）"
 run = "cargo check --manifest-path src-tauri/Cargo.toml"
 
+[tasks."rust:test"]
+description = "作業ブロック API の検証・永続化・異常系の Rust テストを実行する"
+run = "cargo test --manifest-path src-tauri/Cargo.toml"
+
 [tasks."tauri:dev"]
 description = "Windows デスクトップ版を開発モードで起動する（Rust・C++ ビルドツール・WebView2 必須）"
 run = "npm run tauri dev"

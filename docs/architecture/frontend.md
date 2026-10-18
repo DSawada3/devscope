@@ -34,7 +34,7 @@ flowchart TD
 | --- | --- | --- |
 | [App](../../src/App.tsx) | ヘッダー・サイドバー・集計の描画、FullCalendar との接続、編集対象の保持 | Zustand を参照・更新。`draft` と `onClose` を BlockEditor に渡す |
 | [MiniCalendar](../../src/components/MiniCalendar.tsx) | 6週分の月間カレンダー、閲覧月の切り替え、今日・選択日・対象週の強調 | Zustand の `date`・`view` を参照し、日付選択で `setDate` を呼ぶ |
-| [BlockEditor](../../src/components/BlockEditor.tsx) | 入力フォーム、検証、新規追加・編集・削除 | `draft: Draft`、`onClose: () => void` を受け取り、ストアの更新関数を呼ぶ |
+| [BlockEditor](../../src/components/BlockEditor.tsx) | 入力フォーム、検証、新規追加・編集・削除、保存失敗時の入力保持 | `draft: Draft`、`onClose: () => void` を受け取り、ストアの非同期更新を待つ |
 | FullCalendar | 日・週の時間グリッド、範囲選択、ドラッグ移動、リサイズ | App からイベント一覧を受け取り、操作をコールバックで返す |
 | [Button](../../src/components/ui/button.tsx) | 共通ボタンの見た目、variant、size、`asChild` の提供 | Radix Slot、class-variance-authority、`cn` を使用 |
 | [ToggleGroup / ToggleGroupItem](../../src/components/ui/toggle-group.tsx) | 単一選択の切り替え UI | Radix Toggle Group を使用。選択値の保持は App 経由でストアが担当 |
@@ -51,7 +51,9 @@ flowchart LR
   App["App"] --> Store["store/calendar.ts / useCalendar"]
   Mini["MiniCalendar"] --> Store
   Editor["BlockEditor"] --> Store
-  Store --> Demo["data/demoBlocks.ts / createDemoBlocks"]
+  Store --> API["lib/workBlocksApi.ts"]
+  API --> Rust["Tauri コマンド / JSON 保存"]
+  API --> Demo["ブラウザーのみ：data/demoBlocks.ts / createDemoBlocks"]
   Store --> Dates["lib/dates.ts"]
   Demo --> Dates
   App --> Dates
@@ -67,6 +69,7 @@ flowchart LR
 | 所有者 | 保持する状態 | 保持期間 |
 | --- | --- | --- |
 | Zustand | `date`、`view`、`mode`、`sidebarOpen`、`visibleCategories`、`blocks` | アプリのセッション中 |
+| Zustand | `loadState`、`loadError`、`saving` | 読み込み・保存中の状態。保存成功後の戻り値を `blocks` に反映 |
 | App | `draft`、操作通知の `announcement` | App が描画されている間。`draft` は編集終了時に破棄 |
 | MiniCalendar | 閲覧中の `month` | コンポーネントが描画されている間 |
 | BlockEditor | 保存前の `form`、検証エラーの `error` | ダイアログを開いている間 |
@@ -98,7 +101,8 @@ sequenceDiagram
   User->>Editor: 入力して保存
   Editor->>Editor: タイトル・開始終了日時の検証
   alt 入力が有効
-    Editor->>Store: addBlock または updateBlock
+    Editor->>Store: 非同期の addBlock または updateBlock
+    Store->>Store: API 呼び出し、保存成功後に blocks を更新
     Editor->>App: onClose
     Store-->>App: 更新された blocks
     App->>Calendar: 再描画でイベント一覧を反映
@@ -109,11 +113,13 @@ sequenceDiagram
 
 `Draft` は `BlockInput & { id?: string }` です。ID がある場合は既存ブロックを編集し、ない場合は新規追加します。フォーム入力は保存するまでローカルに保持し、キャンセル時は破棄します。
 
-作業名は空白だけを禁止し、日時は有限かつ正の所要時間になることを検証します。削除は既存 ID で `deleteBlock` を呼びます。ストアの更新関数自体には入力検証がないため、別の入力経路を追加する際は検証の共有を検討してください。
+作業名は空白だけを禁止し、日時は有限かつ正の所要時間になることを検証します。削除は既存 ID で非同期の `deleteBlock` を呼びます。
+デスクトップでは Rust が日時形式・暦日・期間・文字数・列挙値を再検証します。API の詳細は [作業ブロック API](../api/work-blocks.md) を参照してください。
+保存中はフォームを無効化し、保存成功後に閉じます。保存・削除失敗時は入力とエラーを保持して再試行できます。
 
 ### 移動・リサイズ
 
-FullCalendar の `eventChange` → App の `changeEvent` → `updateBlock` の順で反映します。開始・終了日時を取得できない場合は `revert()` で操作を戻します。ダイアログを開く操作はありません。
+FullCalendar の `eventChange` → App の `changeEvent` → 非同期の `updateBlock` の順で反映します。開始・終了日時を取得できない場合と保存失敗時は `revert()` で操作を戻し、失敗は画面に表示します。ダイアログを開く操作はありません。
 
 グリッドは30分刻み、ドラッグのスナップは15分刻みです。フォームの日時入力は15分刻みに制限していません。重なる作業は横に並べて表示します。
 
@@ -135,9 +141,13 @@ Radix UI が選択部品やダイアログのキーボード・フォーカス�
 
 ## 7. 実装上の境界と検証
 
-フロントエンドから Rust コマンドや外部 API を呼び出す処理はありません。Zustand の状態はメモリ上のみで、再読み込み・アプリ終了で失われます。
+デスクトップはストアから [workBlocksApi.ts](../../src/lib/workBlocksApi.ts) を経由して Rust コマンドを呼び出し、JSON に保存します。初回は空のカレンダーです。
+起動時は全件読み込み、読み込み成功まで編集を止めます。読み込み失敗時はエラーと再読み込みボタンを表示し、デモへフォールバックしません。
+ブラウザー版は同じアダプターのメモリ上のサンプルを使い、再読み込みで変更が失われます。表示状態とフォーム入力はデスクトップでも永続化しません。
 
 [calendar.spec.ts](../../tests/calendar.spec.ts) は日週の同期、CRUD、入力検証、予定／実績の分離、カテゴリ、サイドバー、ドラッグ、再読み込み、画面サイズと実行時エラーを検証します。[dates.spec.ts](../../tests/dates.spec.ts) は日付計算と期間表示を検証します。
+追加の画面テストは Tauri 通信のモックで API 接続・復元・読み込み失敗・保存と削除の失敗・再試行・ドラッグの復帰を検証します。
+Rust の実ファイル保存と入力検証は `mise run rust:test` で検証します。
 
 ```sh
 mise run build

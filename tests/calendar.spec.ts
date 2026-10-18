@@ -3,6 +3,7 @@
  * 実行方法は README の「構成とテスト」を参照。
  */
 import { test, expect, type Page } from '@playwright/test';
+import type { BlockInput, WorkBlock } from '../src/store/calendar';
 
 // サンプルデータと「今日」の表示が実行日に左右されないよう、ブラウザーの時刻を固定する。
 test.beforeEach(async ({ page }) => {
@@ -137,4 +138,110 @@ test('desktop layout fits and renders without runtime errors', async ({ page }) 
   await page.setViewportSize({ width: 800, height: 640 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+// Tauri の通信境界だけを差し替える。実ファイルの保存は Rust テストで検証する。
+async function useDesktopApi(page: Page) {
+  await page.addInitScript(() => {
+    window.__TAURI__ = { core: { invoke: async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      if (localStorage.getItem('api:fail') === command) throw { code: 'STORAGE_ERROR', message: '保存先にアクセスできません。' };
+      let blocks: WorkBlock[] = JSON.parse(localStorage.getItem('api:blocks') || '[]');
+      if (command === 'list_work_blocks') return blocks as T;
+      let result: WorkBlock | undefined;
+      if (command === 'create_work_block') {
+        result = { ...(args!.input as BlockInput), id: crypto.randomUUID() };
+        blocks.push(result);
+      } else if (command === 'update_work_block') {
+        blocks = blocks.map((b) => b.id === args!.id ? { ...b, ...(args!.patch as Partial<BlockInput>) } : b);
+        result = blocks.find((b) => b.id === args!.id);
+      } else if (command === 'delete_work_block') blocks = blocks.filter((b) => b.id !== args!.id);
+      else throw new Error(`Unexpected command: ${command}`);
+      localStorage.setItem('api:blocks', JSON.stringify(blocks));
+      return result as T;
+    } } };
+  });
+  await page.reload();
+}
+
+test('desktop API restores saved create, update and delete results after reload', async ({ page }) => {
+  await useDesktopApi(page);
+  await expect(page.locator('.demo-badge')).toHaveCount(0);
+  await page.getByRole('button', { name: '予定を作成' }).click();
+  await page.getByLabel('タイトル', { exact: true }).fill('保存される作業');
+  await page.getByRole('button', { name: '追加する' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.reload();
+  const event = page.locator('.fc-event').filter({ hasText: '保存される作業' });
+  await expect(event).toHaveCount(1);
+  await event.click();
+  await page.getByLabel('メモ').fill('再起動後も保持');
+  await page.getByRole('button', { name: '変更を保存' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.reload();
+  await event.click();
+  await expect(page.getByLabel('メモ')).toHaveValue('再起動後も保持');
+  await page.getByRole('button', { name: '削除', exact: true }).click();
+  await expect(event).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('button', { name: '予定を作成' })).toBeEnabled();
+  await expect(event).toHaveCount(0);
+});
+
+test('desktop load failure blocks editing and supports retry', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('api:fail', 'list_work_blocks'));
+  await useDesktopApi(page);
+  await expect(page.getByRole('alert')).toContainText('保存先にアクセスできません。');
+  await expect(page.getByRole('button', { name: '予定を作成' })).toBeDisabled();
+  await page.evaluate(() => localStorage.removeItem('api:fail'));
+  await page.getByRole('button', { name: '再読み込み', exact: true }).click();
+  await expect(page.getByRole('button', { name: '予定を作成' })).toBeEnabled();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
+test('desktop save and delete failures preserve the form and allow retry', async ({ page }) => {
+  await useDesktopApi(page);
+  await page.getByRole('button', { name: '予定を作成' }).click();
+  await page.getByLabel('タイトル', { exact: true }).fill('失敗後の再試行');
+  await page.evaluate(() => localStorage.setItem('api:fail', 'create_work_block'));
+  await page.getByRole('button', { name: '追加する' }).click();
+  await expect(page.getByRole('button', { name: '追加する' })).toBeDisabled();
+  await expect(page.getByRole('alert')).toHaveText('保存先にアクセスできません。');
+  await expect(page.getByLabel('タイトル', { exact: true })).toHaveValue('失敗後の再試行');
+  await expect(page.locator('.fc-event')).toHaveCount(0);
+  await page.evaluate(() => localStorage.removeItem('api:fail'));
+  await page.getByRole('button', { name: '追加する' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const event = page.locator('.fc-event').filter({ hasText: '失敗後の再試行' });
+  await event.click();
+  await page.evaluate(() => localStorage.setItem('api:fail', 'delete_work_block'));
+  await page.getByRole('button', { name: '削除', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('保存先にアクセスできません。');
+  await expect(event).toHaveCount(1);
+  await page.evaluate(() => localStorage.removeItem('api:fail'));
+  await page.getByRole('button', { name: '削除', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(event).toHaveCount(0);
+});
+
+test('failed desktop drag reverts the calendar and keeps saved times', async ({ page }) => {
+  await useDesktopApi(page);
+  await page.getByRole('button', { name: '予定を作成' }).click();
+  await page.getByLabel('タイトル', { exact: true }).fill('移動失敗');
+  await page.getByRole('button', { name: '追加する' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await view(page, '日').click();
+  const event = page.locator('.fc-event').filter({ hasText: '移動失敗' });
+  await event.scrollIntoViewIfNeeded();
+  const lane = await page.locator('.fc-timegrid-slot-lane[data-time="09:00:00"]').boundingBox();
+  const box = await event.boundingBox();
+  await page.evaluate(() => localStorage.setItem('api:fail', 'update_work_block'));
+  await page.mouse.move(box!.x + 30, box!.y + 4);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + 30, box!.y + lane!.height * 2 + 4, { steps: 20 });
+  await page.mouse.up();
+  await expect(page.getByRole('alert')).toContainText('保存先にアクセスできません。');
+  await event.click();
+  await expect(page.getByLabel('開始日時')).toHaveValue('2026-10-14T09:00');
+  await expect(page.getByLabel('終了日時')).toHaveValue('2026-10-14T10:00');
 });

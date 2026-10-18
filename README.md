@@ -1,9 +1,10 @@
 # devscope
 
-DevScope は PSP の考え方に基づいて作業の予定と実績を記録する、Windows 向けデスクトップアプリの UI プロトタイプです。
+DevScope は PSP の考え方に基づいて作業の予定と実績を記録する、Windows 向けデスクトップアプリです。現在はカレンダーとローカル保存を実装しています。
 
 構成・状態管理・データの流れは [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
 React のコンポーネント図と各部品の責務は [フロントエンド設計](docs/architecture/frontend.md) に記載しています。
+バックエンドのコマンド・入力・エラー・保存仕様は [作業ブロック API](docs/api/work-blocks.md) を参照してください。
 
 開発時は [Codex の作業指針](AGENTS.md) に従い、[開発計画](docs/development-plan.md)、[設計判断（ADR）](docs/adr/README.md)、[依存・素材の記録](docs/provenance.md) を更新してください。
 
@@ -43,7 +44,7 @@ mise run build
 mise run preview
 ```
 
-Windows デスクトップ版は Rust、Visual Studio の C++ ビルドツール、WebView2 を導入した環境で起動します。
+Windows デスクトップ版は Rust 1.89 以降、Visual Studio の C++ ビルドツール、WebView2 を導入した環境で起動します。
 
 ```sh
 mise run tauri:dev
@@ -51,7 +52,7 @@ mise run tauri:build
 ```
 
 後者は `src-tauri/target/debug/devscope.exe` を生成します。インストーラーの生成は対象外です。
-`src-tauri` はウィンドウを起動するだけの最小構成で、独自の Rust コマンドやバックエンド処理はありません。
+`src-tauri` はウィンドウ起動と作業ブロックの取得・作成・更新・削除、入力検証、JSON ファイルへの保存を担当します。
 
 ## プロトタイプでできること
 
@@ -64,17 +65,19 @@ mise run tauri:build
 - 作業名・開始終了日時・カテゴリ・プロジェクト・メモの入力、日時の検証
 - 表示期間とカテゴリに応じた時間・件数の集計
 
-初回表示の週にはサンプルの予定と過去時刻の実績を用意しています。
+デスクトップ版は初回は空のカレンダーで起動し、変更をアプリデータディレクトリの `work-blocks.json` に保存します。アプリ終了後も復元します。
+保存に失敗した場合はエラーを表示し、フォームの入力を保持します。ドラッグ・リサイズの失敗時は元に戻します。
+ブラウザー版では初回表示の週にサンプルの予定と過去時刻の実績を用意しています。
 サンプルを変更する場合は、[`src/data/demoBlocks.ts`](src/data/demoBlocks.ts) の `demoBlockTemplates` を編集してください。
 各項目に曜日（`weekday`: 月曜0〜日曜6）、開始・終了時刻、作業名、カテゴリ、プロジェクトを記載しています。
-Zustand のメモリ上だけで管理し、再読み込み・アプリの終了で変更はリセットされます。
-SQLite、ファイル保存、Git 連携、AI 分析は実装していません。
+ブラウザー版は Zustand とデモ用アダプターのメモリ上で管理し、再読み込みで変更はリセットされます。表示状態（日付・フィルターなど）はデスクトップ版でも保存しません。
+SQLite、Git 連携、AI 分析は実装していません。
 プロジェクト管理・インサイトは「準備中」として表示し、操作できません。
 
 ## 構成とテスト
 
 `src/App.tsx` がカレンダー画面、`src/store/calendar.ts` が状態管理、`src/data/demoBlocks.ts` がサンプルデータと生成処理、
-`src/components` がミニカレンダー・編集ダイアログ・shadcn/ui 方式の Radix UI 部品です。
+`src/components` がミニカレンダー・編集ダイアログ・shadcn/ui 方式の Radix UI 部品です。`src/lib/workBlocksApi.ts` が通信境界、`src-tauri/src/blocks.rs` がバックエンド API と永続化を担当します。
 `components.json` と Tailwind の設定を含めています。
 
 Google Chrome をインストールした環境で次を実行してください。
@@ -84,6 +87,8 @@ mise run test
 ```
 
 Playwright が開発サーバーを起動し、日付計算・日週の同期・入力検証・CRUD・モード分離・再読み込み時のリセット・ドラッグ操作・画面サイズを検証します。
+Tauri 通信をモックしたテストでは API 接続・復元・読み込みと保存の失敗・再試行も検証します。実際の WebView2 操作ではありません。
+Rust API の実ファイル保存・復元・入力検証・期間境界・破損・排他は `mise run rust:test`、コンパイルは `mise run rust:check` で確認します。
 `test-results/devscope-desktop.png` に画面のスクリーンショットを出力します。
 
 依存監査では実行時依存の指摘は0件です。Node.js 18 と互換性のある Tailwind CSS 3 の開発用依存には7件の指摘が残っています。

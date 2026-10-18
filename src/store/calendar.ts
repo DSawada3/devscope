@@ -1,10 +1,10 @@
 /**
  * カレンダーの表示状態と作業ブロックを Zustand で共有する。
- * データはメモリ上だけに保持し、再読み込み・アプリ終了後には保存しない。
+ * デスクトップでは Rust API の保存結果を画面用の正本として保持する。
  */
 import { create } from 'zustand';
 import { dateKey } from '@/lib/dates';
-import { createDemoBlocks } from '@/data/demoBlocks';
+import { apiErrorMessage, workBlocksApi } from '@/lib/workBlocksApi';
 
 export type Mode = 'plan' | 'actual';
 export type View = 'day' | 'week';
@@ -37,30 +37,58 @@ interface CalendarState {
   sidebarOpen: boolean;
   visibleCategories: Category[];
   blocks: WorkBlock[];
+  loadState: 'idle' | 'loading' | 'ready' | 'error';
+  loadError: string;
+  saving: boolean;
+  loadBlocks: () => Promise<void>;
   setDate: (date: string) => void;
   setView: (view: View) => void;
   setMode: (mode: Mode) => void;
   toggleSidebar: () => void;
   toggleCategory: (category: Category) => void;
-  addBlock: (input: BlockInput) => void;
-  updateBlock: (id: string, input: Partial<BlockInput>) => void;
-  deleteBlock: (id: string) => void;
+  addBlock: (input: BlockInput) => Promise<void>;
+  updateBlock: (id: string, input: Partial<BlockInput>) => Promise<void>;
+  deleteBlock: (id: string) => Promise<void>;
 }
 
 /** 各コンポーネントから表示状態・作業ブロックを参照、更新するためのフック。 */
-export const useCalendar = create<CalendarState>((set) => ({
+export const useCalendar = create<CalendarState>((set, get) => ({
   date: dateKey(new Date()),
   view: 'week',
   mode: 'plan',
   sidebarOpen: true,
   visibleCategories: Object.keys(categories) as Category[],
-  blocks: createDemoBlocks(),
+  blocks: [],
+  loadState: 'idle',
+  loadError: '',
+  saving: false,
+  loadBlocks: async () => {
+    if (get().loadState === 'loading' || get().saving) return;
+    set({ loadState: 'loading', loadError: '' });
+    try { set({ blocks: await workBlocksApi.list(), loadState: 'ready' }); }
+    catch (error) { set({ loadState: 'error', loadError: apiErrorMessage(error) }); }
+  },
   setDate: (date) => set({ date }),
   setView: (view) => set({ view }),
   setMode: (mode) => set({ mode }),
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   toggleCategory: (category) => set((s) => ({ visibleCategories: s.visibleCategories.includes(category) ? s.visibleCategories.filter((c) => c !== category) : [...s.visibleCategories, category] })),
-  addBlock: (input) => set((s) => ({ blocks: [...s.blocks, { ...input, id: crypto.randomUUID() }] })),
-  updateBlock: (id, input) => set((s) => ({ blocks: s.blocks.map((block) => block.id === id ? { ...block, ...input } : block) })),
-  deleteBlock: (id) => set((s) => ({ blocks: s.blocks.filter((block) => block.id !== id) })),
+  addBlock: async (input) => {
+    if (get().saving || get().loadState !== 'ready') throw new Error('読み込み・保存が完了してから操作してください。');
+    set({ saving: true });
+    try { const block = await workBlocksApi.create(input); set((s) => ({ blocks: [...s.blocks, block] })); }
+    finally { set({ saving: false }); }
+  },
+  updateBlock: async (id, input) => {
+    if (get().saving || get().loadState !== 'ready') throw new Error('読み込み・保存が完了してから操作してください。');
+    set({ saving: true });
+    try { const updated = await workBlocksApi.update(id, input); set((s) => ({ blocks: s.blocks.map((block) => block.id === id ? updated : block) })); }
+    finally { set({ saving: false }); }
+  },
+  deleteBlock: async (id) => {
+    if (get().saving || get().loadState !== 'ready') throw new Error('読み込み・保存が完了してから操作してください。');
+    set({ saving: true });
+    try { await workBlocksApi.delete(id); set((s) => ({ blocks: s.blocks.filter((block) => block.id !== id) })); }
+    finally { set({ saving: false }); }
+  },
 }));

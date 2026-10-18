@@ -17,7 +17,7 @@
 - コンポーネント・型は PascalCase、関数・変数は camelCase、共通 UI ファイルは既存の小文字・ハイフン形式に従う。`@/` は `src/`、型のみの参照には `import type` を使う。
 - 作業データの正本は Zustand とし、FullCalendar や派生集計へ重複保存しない。保存前の入力はローカル状態で扱う。
 - 日付は端末のローカル時間、週は月曜始まり。`YYYY-MM-DD` / `YYYY-MM-DDTHH:mm` と期間の終端を含まない規則を保つ。アプリのタイムゾーンをテスト設定の Asia/Tokyo と混同しない。
-- Rust は現在ウィンドウ起動のみを担当する。ネイティブ機能追加時は UI との責務・型・権限を設計する。
+- Rust はウィンドウ起動と作業ブロック API・JSON 永続化を担当する。仕様は `docs/api/work-blocks.md` に記載し、ネイティブ機能追加時は UI との責務・型・権限を設計する。
 
 ## 依存と素材
 
@@ -40,7 +40,7 @@
   mise run build
   ```
 
-- Rust / Tauri を変更した場合は `mise run rust:check` と `mise run tauri:build` も実施する。Windows では Rust、Visual Studio C++ ビルドツール、WebView2 が必要。
+- Rust / Tauri を変更した場合は `mise run rust:test`、`mise run rust:check` と `mise run tauri:build` も実施する。Windows では Rust 1.89 以降、Visual Studio C++ ビルドツール、WebView2 が必要。
 - Chrome 上のテスト成功を Tauri / WebView2 の動作確認として報告しない。必要なネイティブ操作は別途確認する。
 - [開発計画](docs/development-plan.md) に実装済み機能・残タスク・検証状況を反映し、変更した設計・操作に関する既存資料も同じ作業で更新する。
 - 報告には変更内容、実行コマンドと結果、未検証事項・残課題を書く。失敗・未実行・環境制約を明示し、検証できていない事項を完了扱いしない。
