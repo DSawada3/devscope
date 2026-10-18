@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="icon-title icon-description">
+  <title id="icon-title">DevScope アイコン（AI生成）</title>
+  <desc id="icon-description">Codex が SVG コードを生成して作成したアイコンです。</desc>
+  <rect width="128" height="128" rx="28" fill="#426f56"/>
+  <g fill="none" stroke="#f1f7ef" stroke-linecap="round" stroke-linejoin="round" stroke-width="7">
+    <path d="m64 27 37 20-37 20-37-20z"/>
+    <path d="m27 64 37 20 37-20M27 81l37 20 37-20"/>
+  </g>
+</svg>
