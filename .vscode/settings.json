@@ -1,0 +1,57 @@
+{
+  "commit-message-editor.view.defaultView": "form",
+  "commit-message-editor.dynamicTemplate": [
+    "{type}{scope}: {description}",
+    "",
+    "{body}",
+    "",
+    "{footer}"
+  ],
+  "commit-message-editor.tokens": [
+    {
+      "label": "変更の種類",
+      "name": "type",
+      "type": "enum",
+      "options": [
+        { "label": "feat", "description": "機能追加" },
+        { "label": "fix", "description": "不具合修正" },
+        { "label": "docs", "description": "ドキュメント" },
+        { "label": "style", "description": "空白や整形などの変更" },
+        { "label": "refactor", "description": "リファクタリング" },
+        { "label": "perf", "description": "性能改善" },
+        { "label": "test", "description": "テスト" },
+        { "label": "build", "description": "ビルドや依存関係" },
+        { "label": "ci", "description": "CI 設定" },
+        { "label": "chore", "description": "その他の保守作業" },
+        { "label": "revert", "description": "変更の取り消し" }
+      ]
+    },
+    {
+      "label": "変更範囲（任意）",
+      "name": "scope",
+      "type": "text",
+      "prefix": "(",
+      "suffix": ")"
+    },
+    {
+      "label": "変更内容",
+      "name": "description",
+      "type": "text",
+      "description": "変更の概要を簡潔に記入してください。"
+    },
+    {
+      "label": "本文（任意）",
+      "name": "body",
+      "type": "text",
+      "multiline": true,
+      "lines": 5
+    },
+    {
+      "label": "フッター（任意）",
+      "name": "footer",
+      "type": "text",
+      "multiline": true,
+      "description": "関連 Issue や BREAKING CHANGE: に続く破壊的変更の説明を記入します。"
+    }
+  ]
+}

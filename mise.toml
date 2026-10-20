@@ -1,0 +1,7 @@
+[tasks.help]
+description = "利用できる開発コマンドと説明を表示する"
+run = "mise tasks"
+
+[tasks.setup]
+description = "ロックファイルに従って npm 依存を導入し、Husky を設定する"
+run = "npm ci"
