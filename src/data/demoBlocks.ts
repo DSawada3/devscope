@@ -34,9 +34,9 @@ export const demoBlockTemplates: readonly DemoBlockTemplate[] = [
   { weekday: 6, startTime: '10:00', endTime: '11:30', title: '個人プロジェクト', category: 'development', project: 'Personal' },
 ];
 
-/** 指定日を含む週の予定と、終了済みの作業の実績を生成する。 */
-export function createDemoBlocks(today = new Date()): WorkBlock[] {
-  const monday = weekStart(today);
+/** weekDate の週の予定と、today までに終了した作業の実績を生成する。 */
+export function createDemoBlocks(today = new Date(), weekDate = today): WorkBlock[] {
+  const monday = weekStart(weekDate);
   return demoBlockTemplates.flatMap(({ weekday, startTime, endTime, title, category, project }, index) => {
     const date = dateKey(addDays(monday, weekday));
     const plan: WorkBlock = { id: `demo-plan-${index}`, title, start: `${date}T${startTime}`, end: `${date}T${endTime}`, mode: 'plan', category, project, note: '' };

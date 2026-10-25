@@ -42,6 +42,26 @@ export function minutesBetween(start: string, end: string): number {
   return (new Date(end).getTime() - new Date(start).getTime()) / 60_000;
 }
 
+/** 終端を含まない表示期間に重なる時間。不正な日時・逆転・期間外は0分。 */
+export function clippedMinutes(start: string, end: string, from: Date, to: Date): number {
+  const startTime = new Date(start).getTime();
+  const endTime = new Date(end).getTime();
+  if (![startTime, endTime, from.getTime(), to.getTime()].every(Number.isFinite) || startTime >= endTime || from >= to) return 0;
+  return Math.max(0, Math.min(endTime, to.getTime()) - Math.max(startTime, from.getTime())) / 60_000;
+}
+
+/** 1日の時間軸上での開始・終了位置。日またぎは当日の0〜24時に切り詰める。 */
+export function dayMinuteRange(start: string, end: string, day: Date): { startMinute: number; endMinute: number } | null {
+  const nextDay = addDays(day, 1);
+  if (!clippedMinutes(start, end, day, nextDay)) return null;
+  const beginning = new Date(start);
+  const ending = new Date(end);
+  return {
+    startMinute: beginning <= day ? 0 : beginning.getHours() * 60 + beginning.getMinutes(),
+    endMinute: ending >= nextDay ? 1440 : ending.getHours() * 60 + ending.getMinutes(),
+  };
+}
+
 /** 分数を整数に丸め、「2時間15分」などの表示用文字列にする。 */
 export function formatDuration(minutes: number): string {
   const rounded = Math.round(minutes);

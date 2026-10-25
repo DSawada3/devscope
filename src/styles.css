@@ -55,6 +55,11 @@
 .version-label { margin-left: auto; font-size: 9px; }
 .sidebar-footer p { font-size: 9px; color: #a1a9a4; margin-top: 7px; }
 .main-content { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 27px 30px 0; }
+.task-manager { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 24px; }
+.task-manager[hidden] { display: none; }
+.task-form, .task-list { max-width: 800px; padding: 24px; margin: 0 auto 24px; background: #fff; border: 1px solid #e1e6e4; border-radius: 11px; }
+.task-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #edf0ee; overflow-wrap: anywhere; }
+.task-row > span:first-child { flex: 1; min-width: 160px; }
 .overview { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 1px 25px; }
 .overview-heading > .section-eyebrow { font-size: 8px; letter-spacing: 1.8px; color: #8e9b96; }
 .overview h2 { font-size: 22px; font-weight: 600; letter-spacing: .4px; margin: 7px 0 6px; display: flex; align-items: center; gap: 12px; }
@@ -77,6 +82,10 @@
 .calendar-footer > span { display: flex; align-items: center; gap: 6px; }
 .footer-divider { color: #d0d6d1; margin: 0 4px; }
 .workspace-bottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 38px; font-size: 9px; color: #9ca6a0; }
+.sample-load-button { margin-left: auto; flex-shrink: 0; font-size: 10px; padding: 5px 0; color: #7d8981; text-decoration: underline; text-underline-offset: 3px; }
+.sample-load-button:hover { color: #376449; }
+.sample-load-button:disabled { opacity: .45; cursor: default; }
+.sample-load-message { margin: 0 0 8px; color: #62776a; font-size: 11px; }
 .workspace-bottom > span:first-child { display: flex; align-items: center; gap: 6px; }
 .workspace-bottom > span:last-child { letter-spacing: .5px; color: #aab2ad; }
 
@@ -116,6 +125,50 @@
 .field { display: block; width: 100%; border: 1px solid #dfe5e1; border-radius: 7px; padding: 10px 11px; font-size: 12px; color: #37483e; font-weight: 400; margin-top: 7px; background: #fff; }
 .field:focus { outline: 2px solid #7aab8a; outline-offset: 1px; }
 .field::placeholder { color: #a9b2ac; }
+
+.comparison-view { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.comparison-overview { flex-shrink: 0; padding-bottom: 18px; }
+.comparison-overview h2 { font-size: 21px; }
+.comparison-totals { display: flex; gap: 28px; margin: 0; }
+.comparison-totals dt { font-size: 10px; color: #7d8983; }
+.comparison-totals dd { margin: 8px 0 0; font-size: 20px; font-weight: 600; color: #3a5147; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.comparison-sidebar-note { font-size: 11px; line-height: 1.9; color: #75867b; }
+.comparison-content { display: grid; grid-template-rows: minmax(180px, 1fr) minmax(140px, .55fr); gap: 14px; flex: 1; min-height: 0; }
+.comparison-calendar, .comparison-breakdown { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid #e1e6e4; border-radius: 10px; background: #fff; overflow: hidden; }
+.comparison-calendar-caption { display: flex; justify-content: space-between; gap: 12px; padding: 10px 15px; color: #7d8981; font-size: 10px; border-bottom: 1px solid #edf0ee; flex-shrink: 0; }
+.comparison-timeline-scroll { overflow: auto; min-height: 0; flex: 1; scrollbar-width: thin; scrollbar-color: #dce3dd transparent; }
+.comparison-day-headers { display: grid; position: sticky; top: 0; z-index: 3; background: #fff; height: 66px; border-bottom: 1px solid #dfe7e2; }
+.comparison-time-corner { position: sticky; left: 0; z-index: 4; background: #f9fbf9; display: grid; place-items: center; color: #8b978f; font-size: 10px; border-right: 1px solid #edf0ee; }
+.comparison-day-header { border-right: 1px solid #dfe7e2; text-align: center; font-size: 12px; }
+.comparison-day-header > button { height: 36px; width: 100%; font-weight: 600; color: #4c5c54; }
+.comparison-day-header > button:hover { background: #edf4ef; }
+.comparison-day-header[data-today=true] > button { color: #326449; background: #edf5ee; }
+.comparison-day-header > button > span { margin-left: 5px; font-size: 10px; font-weight: 400; }
+.comparison-mode-headers { display: grid; grid-template-columns: 1fr 1fr; height: 30px; font-size: 10px; }
+.comparison-mode-headers span { display: grid; place-items: center; background: #f5f8f6; color: #577162; }
+.comparison-mode-headers span:last-child { background: #f4f6fa; color: #5c7090; }
+.comparison-tracks { display: grid; }
+.comparison-time-axis { height: 1440px; position: sticky; left: 0; z-index: 2; background: #fff; border-right: 1px solid #e4eae6; }
+.comparison-time-axis span { position: absolute; right: 8px; padding-top: 3px; font-size: 9px; color: #8e9992; }
+.comparison-lane { position: relative; height: 1440px; border-right: 1px solid #e0e7e2; background-image: repeating-linear-gradient(to bottom, #e9eeeb 0px, #e9eeeb 1px, transparent 1px, transparent 30px); }
+.comparison-lane-actual { background-color: #f9faff; border-right-color: #cdd9d1; }
+.comparison-event { position: absolute; border-left: 3px solid; border-radius: 4px; padding: 3px 4px; overflow: hidden; font-size: 10px; box-sizing: border-box; line-height: 1.4; }
+.comparison-event strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; overflow-wrap: anywhere; }
+.comparison-event > span, .comparison-event > small { display: block; font-size: 9px; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comparison-event:focus-visible { outline: 2px solid #376449; outline-offset: -2px; z-index: 1; }
+.comparison-breakdown-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 15px; flex-shrink: 0; }
+.comparison-breakdown-heading h3 { font-size: 12px; font-weight: 600; }
+.comparison-breakdown-heading button { font-size: 11px; height: 27px; padding: 0 10px; }
+.comparison-table-scroll { min-height: 0; overflow: auto; flex: 1; }
+.comparison-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.comparison-table th, .comparison-table td { padding: 9px 15px; text-align: right; border-bottom: 1px solid #edf0ee; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.comparison-table th:first-child { text-align: left; width: 45%; white-space: normal; overflow-wrap: anywhere; }
+.comparison-table thead th { position: sticky; top: 0; background: #f7f9f8; font-size: 10px; color: #75827a; font-weight: 500; z-index: 1; }
+.comparison-table tbody th { font-weight: 500; }
+.comparison-empty { padding: 18px 15px; font-size: 12px; color: #7d8983; }
+.comparison-footnote { padding: 8px 15px; border-top: 1px solid #edf0ee; color: #8b978f; font-size: 9px; flex-shrink: 0; }
+@media (max-width: 1200px) { .comparison-overview { align-items: flex-start; flex-direction: column; gap: 10px; } .comparison-overview h2 { font-size: 18px; } .comparison-totals { width: 100%; justify-content: space-between; gap: 12px; } .comparison-totals dd { font-size: 17px; margin-top: 4px; } .comparison-overview .overview-heading > p { display: none; } .comparison-content { gap: 10px; } }
+@media (max-width: 760px) { .comparison-overview { padding-bottom: 12px; } .comparison-totals dd { font-size: 15px; } .comparison-calendar-caption { font-size: 9px; padding: 8px 10px; } .comparison-calendar-caption span:last-child { display: none; } .comparison-breakdown-heading { padding: 8px 10px; flex-wrap: wrap; gap: 6px; } .comparison-table th, .comparison-table td { padding: 8px 10px; } .comparison-footnote { font-size: 8px; padding: 6px 10px; } }
 
 @media (min-width: 1600px) { .main-content { padding: 35px 40px 0; } .overview { padding-bottom: 30px; } .fc .fc-timegrid-slot { height: 35px; } }
 @media (max-width: 1200px) { .brand-area { width: 224px; padding-left: 20px; } .sidebar { width: 224px; min-width: 224px; padding-left: 16px; padding-right: 16px; } .header-controls { gap: 7px; padding-right: 18px; padding-left: 12px; } .period-label { font-size: 14px; } .header-right { gap: 10px; } .mode-toggle button { padding-left: 12px; padding-right: 12px; } .main-content { padding: 23px 20px 0; } .stat { padding: 0 15px; } .stat strong { font-size: 17px; gap: 8px; } }

@@ -4,6 +4,13 @@
 番号は既存の最大番号の次を使い、初回は `0001` とする。本文は原則日本語で記述する。
 既存の構成説明は [全体設計](../../ARCHITECTURE.md) と [フロントエンド設計](../architecture/frontend.md) を参照し、過去の判断理由を推測して ADR にしない。
 
+- [0001: 作業ブロックの永続化](0001-work-block-persistence.md)
+- [0002: タスク登録と選択入力](0002-task-registration.md)
+- [0003: 開発工程・プロジェクト登録](0003-task-registries.md)
+- [0004: 作業カテゴリ登録と一覧からの削除](0004-category-registration-and-deletion.md)
+- [0005: サンプルデータの一括追加](0005-sample-data-import.md)
+- [0006: カレンダー内の比較表示](0006-calendar-comparison.md)
+
 対象例は永続化方式、共有状態の所有者、日時モデル、Rust / UI の責務・権限、主要な依存技術の採用・置換。
 局所的な修正すべてに ADR は不要。判断を変更するときは新しい ADR から旧 ADR を参照し、旧記録を「置換済み」にする。
 

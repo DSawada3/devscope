@@ -2,9 +2,9 @@
 
 ## 1. 目的と実装範囲
 
-DevScope は、PSP（Personal Software Process）の考え方に基づき、ソフトウェア開発の予定と実績を記録・比較する Windows 向けアプリケーションです。現在はカレンダーの画面操作と作業ブロックのローカル保存を実装しています。予定と実績の比較は未実装です。
+DevScope は、PSP（Personal Software Process）の考え方に基づき、ソフトウェア開発の予定と実績を記録・比較する Windows 向けアプリケーションです。カレンダーの画面操作・ローカル保存に加え、予定と実績の並列表示と日／週単位の時間差分集計を実装しています。個別ブロックの自動対応付けは未実装です。
 
-ブラウザー版と Tauri 版は同じ React フロントエンドを使用します。Tauri の Rust コードはウィンドウ起動と作業ブロック API・入力検証・JSON 永続化を担当します。ブラウザー版はメモリ上のデモです。SQLite、Git 連携、AI 分析、予定と実績の自動対応付けは未実装です。
+ブラウザー版と Tauri 版は同じ React フロントエンドを使用します。Tauri の Rust コードはウィンドウ起動と作業ブロックおよびタスクの API・入力検証・JSON 永続化を担当します。ブラウザー版はメモリ上のデモです。SQLite、Git 連携、AI 分析、予定と実績の自動対応付けは未実装です。
 コマンドの契約は [API ドキュメント](docs/api/work-blocks.md)、判断理由は [ADR 0001](docs/adr/0001-work-block-persistence.md) を参照してください。
 
 ## 2. 全体構成
@@ -18,8 +18,14 @@ flowchart TD
   UI --> App["App.tsx：画面構成・カレンダー連携・集計"]
   App --> Mini["MiniCalendar：日付選択"]
   App --> Calendar["FullCalendar：時間グリッド・ドラッグ操作"]
-  App --> Editor["BlockEditor：入力・検証"]
-  App <--> Store["Zustand：共有状態・WorkBlock 配列"]
+  App --> Compare["ComparisonView：閲覧専用の時間軸・時間差分集計"]
+  Compare --> Store
+  App --> Editor["BlockEditor：タスク選択・入力・検証"]
+  App --> Tasks["TaskManager：タスク登録・一覧"]
+  Tasks --> Registry["RegistryManager：開発工程・プロジェクト・作業カテゴリ登録と削除"]
+  Registry --> Store
+  Tasks --> Store
+  App <--> Store["Zustand：共有状態・WorkBlock / Task 配列"]
   Mini <--> Store
   Editor --> Store
   Calendar -->|操作イベント| App
@@ -59,6 +65,11 @@ Zustand が確定済みの作業データと共有する表示状態を保持し
 | [src/App.tsx](src/App.tsx) | ヘッダー・サイドバー・集計の構成、FullCalendar との接続、編集対象の管理 |
 | [src/components/MiniCalendar.tsx](src/components/MiniCalendar.tsx) | 6週・42日分の月間表示、月移動、選択日・選択週・今日の強調 |
 | [src/components/BlockEditor.tsx](src/components/BlockEditor.tsx) | 作業ブロックの作成・編集・削除と入力検証 |
+| [src/components/ComparisonView.tsx](src/components/ComparisonView.tsx) | 各日の予定・実績を共通の時間軸へ配置し、合計・内訳を表示 |
+| [src/lib/comparison.ts](src/lib/comparison.ts) | タスク・プロジェクト・工程別の差分集計と重複ブロックの配置 |
+| [src/components/TaskManager.tsx](src/components/TaskManager.tsx) | 日時を持たないタスクの事前登録・一覧と入力検証 |
+| [src/components/RegistryManager.tsx](src/components/RegistryManager.tsx) | 開発工程・プロジェクト・作業カテゴリの登録・一覧・削除と入力検証 |
+| [src/data/defaultCategories.ts](src/data/defaultCategories.ts) | 初回起動・旧データ用のカテゴリ名称と配色。実行中の正本はストア |
 | `src/components/ui/` | Radix UI 等を使う共通部品。業務データへの依存は持たない |
 | [src/store/calendar.ts](src/store/calendar.ts) | 作業データの型、カテゴリ定義、Zustand ストア |
 | [src/data/demoBlocks.ts](src/data/demoBlocks.ts) | 初回表示用サンプルの定義（`demoBlockTemplates`）と生成処理（`createDemoBlocks`） |
@@ -88,21 +99,36 @@ Zustand が確定済みの作業データと共有する表示状態を保持し
 | `title` | 作業名 |
 | `start`, `end` | ローカル日時文字列 `YYYY-MM-DDTHH:mm` |
 | `mode` | `plan`（予定）または `actual`（実績） |
-| `category` | `development`、`design`、`review`、`meeting` |
+| `category` | 登録されたカテゴリの ID。初期4件の ID は維持し、追加分は `category-N` |
 | `project` | 任意のプロジェクト名。プロジェクトマスターへの参照ではない |
+| `phase` | 任意の開発工程名。旧データ・省略入力は空文字。タスク選択時のコピー |
 | `note` | 任意のメモ |
 
 予定と実績は同じ配列内に保持し、`mode` で表示を絞り込みます。予定の編集を実績へ反映する処理や、予定から実績へ変換する処理はありません。
+表示状態は `CalendarMode = Mode | 'compare'` を使い、保存する `WorkBlock.mode` は従来の `plan | actual` を維持します。比較時は両モードを共通の期間・カテゴリで絞り込み、各日の隣接列に並べます。集計は派生値として描画時に計算し、日またぎ・週またぎを表示期間で切り詰めます。詳細は [ADR 0006](docs/adr/0006-calendar-comparison.md)。
+
+### タスク
+
+`Task` は `id`、`title`、`category`、`project` を持つ日時未定の作業です。登録画面で作成し、予定・実績の選択時に内容をブロックへコピーします。ブロックはタスクへの外部参照を持たず、タスク削除後も履歴を保持します。カテゴリ・プロジェクトは選択後に調整できます。タスクの名前編集は未実装です。[ADR 0002](docs/adr/0002-task-registration.md) に保存互換性と判断を記録しています。
+
+タスクには任意の `phase`（開発工程名）も保持します。開発工程はカテゴリとは独立して登録し、タスクからブロックへコピーします。開発工程・プロジェクトの候補は一意な名前の配列で、登録・取得・削除 API を持ち、既存 JSON に保存します。旧データでは候補配列を空として読み込み、履歴の名称を候補末尾に補います。名前の編集は未実装です。判断と検証条件は [ADR 0003](docs/adr/0003-task-registries.md) と [ADR 0004](docs/adr/0004-category-registration-and-deletion.md) を参照してください。
+
+カテゴリは `{ id, label, color, background }` の登録データで、Zustand の `categories` が名称・配色の正本です。初期4件を含め、未使用なら削除できます。タスクまたはブロックで使用中のカテゴリ・工程・プロジェクトは `IN_USE` として削除を拒否します。保存後にだけ一覧を変更します。カテゴリ0件の状態も保存し、タスク登録では新規カテゴリの登録を促します。追加カテゴリは既存の緑色を使用し、色編集は未実装です。既存の開発時間の集計対象は引き続き `development` です。
+
+### デバッグ用サンプルの追加
+
+カレンダー下部のボタンは `createDemoBlocks(now, weekDate)` で表示週のサンプルを生成し、ストア経由で `import_sample_data` を呼びます。Rust は全入力を検証し、タスク・不足カテゴリ・ブロックを1回の JSON 保存で追加します。確定済み一覧と追加件数を返し、ストアへまとめて反映します。同じ内容は追加せず、既存データを上書きしません。日付は端末ローカル、実績は操作時点で終了済みのものだけです。初回の自動投入は行いません。[ADR 0005](docs/adr/0005-sample-data-import.md) に失敗時・重複・補完規則を記録しています。
 
 ### 共有状態とローカル状態
 
 | 所有者 | 状態 |
 | --- | --- |
-| Zustand | `date`（選択日）、`view`（日／週）、`mode`（予定／実績）、`sidebarOpen`、`visibleCategories`、`blocks` |
-| Zustand | 非同期状態の `loadState`、`loadError`、`saving`。保存成功値だけを `blocks` に反映 |
-| App | `draft`（編集対象のコピー）、`announcement`（操作の読み上げ通知）、FullCalendar の参照 |
+| Zustand | `date`（選択日）、`view`（日／週）、`mode`（予定／実績）、`sidebarOpen`、`visibleCategories`、`blocks`、`tasks` |
+| Zustand | 候補一覧の `phases` / `projects`、非同期状態の `loadState`、`loadError`、`saving`。保存成功値だけを反映 |
+| App | `screen`（カレンダー／タスク登録）、`draft`（編集対象のコピー）、`announcement`（操作の読み上げ通知）、FullCalendar の参照 |
 | MiniCalendar | `month`（ミニカレンダーで閲覧中の月） |
-| BlockEditor | 保存前の入力内容と検証エラー |
+| BlockEditor / TaskManager | 保存前の入力内容と検証エラー |
+| TaskManager / RegistryManager | 登録画面の選択、登録前の名前・検証エラー・保存通知。画面往復中も TaskManager のタスク入力を保持 |
 
 初期状態は今日・週表示・予定・サイドバー表示・全カテゴリ表示です。デスクトップは保存済み作業を全件読み込み、初回は空の一覧です。ブラウザーでは起動時に、その週のサンプル予定と、終了時刻が起動時刻以前のサンプル実績を生成します。サンプルは時間経過に応じて自動追加されません。
 
@@ -125,11 +151,11 @@ Zustand が確定済みの作業データと共有する表示状態を保持し
 
 1. 追加ボタン、空き時間のクリック、範囲ドラッグで新規 `draft` を作る。追加ボタンの初期時刻は選択日の9時から1時間。
 2. 既存ブロックのクリックでは、ID に対応するストア内の値を `draft` にコピーする。
-3. BlockEditor はローカル状態で入力を保持し、保存時にタイトルと日時を検証する。
+3. BlockEditor は登録済みタスクを選択し、内容をフォームへコピーする。保存時は選択と日時を検証する。旧ブロックでは「現在の作業」を維持して編集できる。
 4. ID の有無に応じて非同期の `addBlock` / `updateBlock` を呼ぶ。削除は `deleteBlock` を呼ぶ。
 5. API の保存成功値をストアに反映してからダイアログを閉じ、FullCalendar のイベント一覧と集計を再計算する。失敗時は入力とエラーを保持する。
 
-キャンセルやダイアログを閉じる操作では、入力途中の値をストアへ反映しません。タイトルは空白だけを禁止し、日時は有効な正の所要時間になることを確認します。文字数制限は入力要素で設定しています。
+キャンセルやダイアログを閉じる操作では、入力途中の値をストアへ反映しません。タスク登録では作業名の空白だけの入力を禁止し、ブロックではタスク選択と有効な正の所要時間を確認します。文字数制限は入力要素で設定しています。
 
 BlockEditor の検証に加え、バックエンドでも日時形式・実在する暦日・開始終了の順序・文字数・列挙値を検証します。部分更新は既存値と統合後に検証します。
 
